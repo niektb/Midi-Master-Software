@@ -9,31 +9,31 @@ const uint8_t pin_sw3  = 2;
 const uint8_t debounce_delay = 20;
 
 // SWITCH 1
-unsigned long ldt1 = 0; // last debounce time
 bool s1state;
 bool last_s1state = HIGH;
 bool last_button1 = HIGH;
 
+unsigned long ldt1 = 0; // last debounce time
 unsigned long ftt1; // first tap time
 unsigned long frt1; // first release time
 bool wfr1 = false;  // wait for release
 
 // SWITCH 3
-unsigned long ldt2 = 0;
 bool s2state;
 bool last_s2state = HIGH;
 bool last_button2 = HIGH;
 
+unsigned long ldt2 = 0; // last debounce time
 unsigned long ftt2; // first tap time
 unsigned long frt2; // first release time
 bool wfr2 = false;  // wait for release
 
 // SWITCH 3
-unsigned long ldt3 = 0;
 bool s3state;
 bool last_s3state = HIGH;
 bool last_button3 = HIGH;
 
+unsigned long ldt3 = 0; // last debounce time
 unsigned long ftt3; // first tap time
 unsigned long frt3; // first release time
 bool wfr3 = false;  // wait for release
@@ -100,7 +100,7 @@ void taskSW2(xTaskId id_)
 
     // Button and last_button represent the 'unstable' input that gets updated continuously.
     // These are used for debouncing.
-    // s1state is the stable input that can be used for reading button presses.
+    // s2state is the stable input that can be used for reading button presses.
     if (button != s2state)
       s2state = button;
 
