@@ -4,7 +4,6 @@
 const uint8_t pin_sw1  = 4;
 const uint8_t pin_sw2  = 3;
 const uint8_t pin_sw3  = 2;
-//const uint8_t pin_midi_tx   = ;
 
 /* DEBOUNCE PARAMETERS */
 const uint8_t debounce_delay = 20;
@@ -38,11 +37,6 @@ bool last_button3 = HIGH;
 unsigned long ftt3; // first tap time
 unsigned long frt3; // first release time
 bool wfr3 = false;  // wait for release
-
-/* Line6 M5 Parameters */
-// current number?
-// favorite?
-// preset 1, 2 and 3?
 
 /* TASKS */
 void taskSW1(xTaskId id_)
@@ -192,55 +186,6 @@ void taskSW3(xTaskId id_)
   last_button3 = button;
 }
 
-/*void taskSW(xTaskId id_, const uint8_t port, const uint8_t sw_num, bool sstate, unsigned long last_debounce_time = 0, bool last_sstate = HIGH, bool last_button = HIGH)
-{
-  int button = digitalRead(port);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button)
-    last_debounce_time = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - last_debounce_time) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // sstate is the stable input that can be used for reading button presses.
-    if (button != sstate)
-      sstate = button;
-
-    if (sstate == LOW && last_sstate == HIGH) // SWITCH PRESS
-    {
-      first_tap_time = millis();
-      wait_for_release = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRES" );
-
-      last_sstate = sstate;
-    }
-    else if (wait_for_release && ((millis() - first_tap_time) >= 1000)) // SWITCH HOLD
-    {
-      wait_for_release = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOLD" );
-    }
-    else if (sstate == HIGH && last_sstate == LOW) // SWITCH RELEASE
-    {
-      if (wait_for_release)
-      {
-        first_release_time = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"RELA" );
-
-        wait_for_release = false;
-      }
-      last_sstate = s1state;
-    }
-  }
-  last_button = button;
-}*/
-
 void taskSerial(xTaskId id_)
 {
   xTaskGetNotifResult res = xTaskGetNotif(id_);
@@ -249,11 +194,6 @@ void taskSerial(xTaskId id_)
   xMemFree(res);
   xTaskNotifyClear(id_);
 }
-
-/*void taskMidiMan(xTaskId id_)
-{
-  // General Purpose Task to keep track of the MIDI Controller State
-}*/
 
 void setup()
 {
