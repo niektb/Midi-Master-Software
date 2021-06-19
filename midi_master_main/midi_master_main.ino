@@ -1,33 +1,43 @@
 #include <HeliOS_Arduino.h>
-#include <avr/pgmspace.h>
-#include <SPI.h>
 
 /* PIN DEFINITIONS */
-const uint8_t pin_switch_1  = ;
-const uint8_t pin_switch_2  = ;
-const uint8_t pin_switch_3  = ;
-const uint8_t pin_midi_tx   = ;
+const uint8_t pin_sw1  = 4;
+const uint8_t pin_sw2  = 3;
+const uint8_t pin_sw3  = 2;
+//const uint8_t pin_midi_tx   = ;
 
 /* DEBOUNCE PARAMETERS */
 const uint8_t debounce_delay = 20;
 
 // SWITCH 1
-unsigned long last_debounce_time_1 = 0;
+unsigned long ldt1 = 0; // last debounce time
 bool s1state;
 bool last_s1state = HIGH;
 bool last_button1 = HIGH;
 
+unsigned long ftt1; // first tap time
+unsigned long frt1; // first release time
+bool wfr1 = false;  // wait for release
+
 // SWITCH 3
-unsigned long last_debounce_time_2 = 0;
+unsigned long ldt2 = 0;
 bool s2state;
 bool last_s2state = HIGH;
 bool last_button2 = HIGH;
 
+unsigned long ftt2; // first tap time
+unsigned long frt2; // first release time
+bool wfr2 = false;  // wait for release
+
 // SWITCH 3
-unsigned long last_debounce_time_3 = 0;
+unsigned long ldt3 = 0;
 bool s3state;
 bool last_s3state = HIGH;
 bool last_button3 = HIGH;
+
+unsigned long ftt3; // first tap time
+unsigned long frt3; // first release time
+bool wfr3 = false;  // wait for release
 
 /* Line6 M5 Parameters */
 // current number?
@@ -37,13 +47,13 @@ bool last_button3 = HIGH;
 /* TASKS */
 void taskSW1(xTaskId id_)
 {
-  int button = digitalRead(pin_switch_1);
+  int button = digitalRead(pin_sw1);
   // reset debouncing timer if the switch changed, due to noise or pressing:
   if (button != last_button1)
-    last_debounce_time = millis();
+    ldt1 = millis();
 
   // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - last_debounce_time_1) > debounce_delay) {
+  if ((millis() - ldt1) > debounce_delay) {
 
     // Button and last_button represent the 'unstable' input that gets updated continuously.
     // These are used for debouncing.
@@ -53,9 +63,160 @@ void taskSW1(xTaskId id_)
 
     if (s1state == LOW && last_s1state == HIGH) // SWITCH PRESS
     {
+      ftt1 = millis();
+      wfr1 = true;
+
+      // PERFORM PRESS ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE1" );
+      
+      last_s1state = s1state;
+    }
+    else if (wfr1 && ((millis() - ftt1) >= 1000)) // SWITCH HOLD
+    {
+      wfr1 = false;
+      // PERFORM HOLD ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL1" );
+    }
+    else if (s1state == HIGH && last_s1state == LOW) // SWITCH RELEASE
+    {
+      if (wfr1)
+      {
+        frt1 = millis();
+
+        // PERFORM RELEASE ACTION
+        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL1" );
+
+        wfr1 = false;
+      }
+      last_s1state = s1state;
+    }
+  }
+  last_button1 = button;
+}
+
+void taskSW2(xTaskId id_)
+{
+  int button = digitalRead(pin_sw2);
+  // reset debouncing timer if the switch changed, due to noise or pressing:
+  if (button != last_button2)
+    ldt2 = millis();
+
+  // If the button state is stable for at least [debounce_delay], fire body of the statement
+  if ((millis() - ldt2) > debounce_delay) {
+
+    // Button and last_button represent the 'unstable' input that gets updated continuously.
+    // These are used for debouncing.
+    // s1state is the stable input that can be used for reading button presses.
+    if (button != s2state)
+      s2state = button;
+
+    if (s2state == LOW && last_s2state == HIGH) // SWITCH PRESS
+    {
+      ftt2 = millis();
+      wfr2 = true;
+
+      // PERFORM PRESS ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE2");
+      
+      last_s2state = s2state;
+    }
+    else if (wfr2 && ((millis() - ftt2) >= 1000)) // SWITCH HOLD
+    {
+      wfr2 = false;
+      // PERFORM HOLD ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL2");
+    }
+    else if (s2state == HIGH && last_s2state == LOW) // SWITCH RELEASE
+    {
+      if (wfr2)
+      {
+        frt2 = millis();
+
+        // PERFORM RELEASE ACTION
+        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL2");
+
+        wfr2 = false;
+      }
+      last_s2state = s1state;
+    }
+  }
+  last_button2 = button;
+}
+
+void taskSW3(xTaskId id_)
+{
+  int button = digitalRead(pin_sw3);
+  // reset debouncing timer if the switch changed, due to noise or pressing:
+  if (button != last_button3)
+    ldt3 = millis();
+
+  // If the button state is stable for at least [debounce_delay], fire body of the statement
+  if ((millis() - ldt3) > debounce_delay) {
+
+    // Button and last_button represent the 'unstable' input that gets updated continuously.
+    // These are used for debouncing.
+    // s3state is the stable input that can be used for reading button presses.
+    if (button != s3state)
+      s3state = button;
+
+    if (s3state == LOW && last_s3state == HIGH) // SWITCH PRESS
+    {
+      ftt3 = millis();
+      wfr3 = true;
+
+      // PERFORM PRESS ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE3");
+      
+      last_s3state = s3state;
+    }
+    else if (wfr3 && ((millis() - ftt3) >= 1000)) // SWITCH HOLD
+    {
+      wfr3 = false;
+      // PERFORM HOLD ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL3");
+    }
+    else if (s3state == HIGH && last_s3state == LOW) // SWITCH RELEASE
+    {
+      if (wfr3)
+      {
+        frt3 = millis();
+
+        // PERFORM RELEASE ACTION
+        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL3");
+
+        wfr3 = false;
+      }
+      last_s3state = s1state;
+    }
+  }
+  last_button3 = button;
+}
+
+/*void taskSW(xTaskId id_, const uint8_t port, const uint8_t sw_num, bool sstate, unsigned long last_debounce_time = 0, bool last_sstate = HIGH, bool last_button = HIGH)
+{
+  int button = digitalRead(port);
+  // reset debouncing timer if the switch changed, due to noise or pressing:
+  if (button != last_button)
+    last_debounce_time = millis();
+
+  // If the button state is stable for at least [debounce_delay], fire body of the statement
+  if ((millis() - last_debounce_time) > debounce_delay) {
+
+    // Button and last_button represent the 'unstable' input that gets updated continuously.
+    // These are used for debouncing.
+    // sstate is the stable input that can be used for reading button presses.
+    if (button != sstate)
+      sstate = button;
+
+    if (sstate == LOW && last_sstate == HIGH) // SWITCH PRESS
+    {
       first_tap_time = millis();
       wait_for_release = true;
-      last_s1state = s1state;
+
+      // PERFORM PRESS ACTION
+      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRES" );
+
+      last_sstate = sstate;
     }
     else if (wait_for_release && ((millis() - first_tap_time) >= 1000)) // SWITCH HOLD
     {
@@ -63,7 +224,7 @@ void taskSW1(xTaskId id_)
       // PERFORM HOLD ACTION
       xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOLD" );
     }
-    else if (s1state == HIGH && last_s1state == LOW) // SWITCH RELEASE
+    else if (sstate == HIGH && last_sstate == LOW) // SWITCH RELEASE
     {
       if (wait_for_release)
       {
@@ -74,11 +235,11 @@ void taskSW1(xTaskId id_)
 
         wait_for_release = false;
       }
-      last_s1state = s1state;
+      last_sstate = s1state;
     }
   }
-  last_button1 = button;
-}
+  last_button = button;
+}*/
 
 void taskSerial(xTaskId id_)
 {
@@ -89,28 +250,36 @@ void taskSerial(xTaskId id_)
   xTaskNotifyClear(id_);
 }
 
-void taskMidiMan(xTaskId id_)
+/*void taskMidiMan(xTaskId id_)
 {
   // General Purpose Task to keep track of the MIDI Controller State
-}
+}*/
 
 void setup()
 {
   Serial.begin(115200);
-  Serial.println(F("[VDD Debug Stream]"));
+  Serial.println(F("[MIDI Master Debug Stream]"));
 
   // PIN SETUP
-  pinMode(pin_switch_1, INPUT);
-  pinMode(pin_switch_2, INPUT);
-  pinMode(pin_switch_3, INPUT);
-  pinMode(pin_delay_time, OUTPUT);
-
+  pinMode(pin_sw1, INPUT);
+  pinMode(pin_sw2, INPUT);
+  pinMode(pin_sw3, INPUT);
 
   xTaskId id = 0;
   xHeliOSSetup();
+  
+  id = xTaskAdd("TASKSW1", &taskSW1);
+  xTaskStart(id);
 
+  id = xTaskAdd("TASKSW2", &taskSW2);
+  xTaskStart(id);
+
+  id = xTaskAdd("TASKSW3", &taskSW3);
+  xTaskStart(id);
+
+  id = xTaskAdd("TASKSERIAL", &taskSerial);
+  xTaskWait(id);
 }
-
 
 void loop()
 {
