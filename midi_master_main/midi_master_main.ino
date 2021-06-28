@@ -37,6 +37,17 @@ unsigned long ldt3 = 0; // last debounce time
 unsigned long ftt3; // first tap time
 unsigned long frt3; // first release time
 bool wfr3 = false;  // wait for release
+// MIDI PARAM
+const uint8_t fav_preset = 7; // preset 8
+uint8_t current_preset = fav_preset;
+const int PC = 192;
+//const int CC = 176;
+
+// Send MIDI message
+void MIDIPC(int COMMAND, int DATA) {
+  Serial.write(COMMAND);
+  Serial.write(DATA);
+}
 
 /* TASKS */
 void taskSW1(xTaskId id_)
@@ -61,7 +72,7 @@ void taskSW1(xTaskId id_)
       wfr1 = true;
 
       // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE1" );
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE1" );
       
       last_s1state = s1state;
     }
@@ -69,7 +80,7 @@ void taskSW1(xTaskId id_)
     {
       wfr1 = false;
       // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL1" );
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL1" );
     }
     else if (s1state == HIGH && last_s1state == LOW) // SWITCH RELEASE
     {
@@ -78,7 +89,7 @@ void taskSW1(xTaskId id_)
         frt1 = millis();
 
         // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL1" );
+        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL1" );
 
         wfr1 = false;
       }
@@ -110,7 +121,7 @@ void taskSW2(xTaskId id_)
       wfr2 = true;
 
       // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE2");
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE2");
       
       last_s2state = s2state;
     }
@@ -118,7 +129,7 @@ void taskSW2(xTaskId id_)
     {
       wfr2 = false;
       // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL2");
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL2");
     }
     else if (s2state == HIGH && last_s2state == LOW) // SWITCH RELEASE
     {
@@ -127,7 +138,7 @@ void taskSW2(xTaskId id_)
         frt2 = millis();
 
         // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL2");
+        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL2");
 
         wfr2 = false;
       }
@@ -135,6 +146,7 @@ void taskSW2(xTaskId id_)
     }
   }
   last_button2 = button;
+
 }
 
 void taskSW3(xTaskId id_)
@@ -159,7 +171,7 @@ void taskSW3(xTaskId id_)
       wfr3 = true;
 
       // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"PRE3");
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE3");
       
       last_s3state = s3state;
     }
@@ -167,7 +179,7 @@ void taskSW3(xTaskId id_)
     {
       wfr3 = false;
       // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"HOL3");
+      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL3");
     }
     else if (s3state == HIGH && last_s3state == LOW) // SWITCH RELEASE
     {
@@ -176,7 +188,7 @@ void taskSW3(xTaskId id_)
         frt3 = millis();
 
         // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKSERIAL"), 4, (char *)"REL3");
+        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL3");
 
         wfr3 = false;
       }
@@ -195,20 +207,62 @@ void taskSerial(xTaskId id_)
   xTaskNotifyClear(id_);
 }
 
+void taskMan(xTaskId id_)
+{
+  xTaskGetNotifResult res = xTaskGetNotif(id_);
+  if (res)
+  {
+    // Perform task if we got a notification
+    if (strcmp(res->notifyValue, "PRE1") == 0)
+    {
+      // Press Switch 1
+      if (current_preset > 0)
+        current_preset--;
+      else
+        current_preset = 23;  
+      
+      MIDIPC(PC, current_preset);
+    }
+    else if (strcmp(res->notifyValue, "PRE2") == 0)
+    {
+      // Press Switch 2
+        current_preset = fav_preset;
+      
+      MIDIPC(PC, current_preset);
+    }
+    else if (strcmp(res->notifyValue, "PRE3") == 0)
+    {
+      // Press Switch 3
+      if (current_preset < 23)
+        current_preset++;
+      else
+        current_preset = 0;
+        
+      MIDIPC(PC, current_preset);
+    }
+    //xTaskNotify(xTaskGetId("TASKSERIAL"), 4, res->notifyValue);
+  }
+  xMemFree(res);
+  xTaskNotifyClear(id_);
+}
+
 void setup()
 {
-  Serial.begin(115200);
-  Serial.println(F("[MIDI Master Debug Stream]"));
+  Serial.begin(31250);
+  //Serial.println(F("[MIDI Master Debug Stream]"));
 
   // PIN SETUP
   pinMode(pin_sw1, INPUT);
   pinMode(pin_sw2, INPUT);
   pinMode(pin_sw3, INPUT);
 
+  delay(3000); // Compensate for slow start Line6 M5
+  MIDIPC(PC, current_preset);
+
   xTaskId id = 0;
   xHeliOSSetup();
   
-  id = xTaskAdd("TASKSW1", &taskSW1);
+  xTaskId id = xTaskAdd("TASKSW1", &taskSW1);
   xTaskStart(id);
 
   id = xTaskAdd("TASKSW2", &taskSW2);
@@ -217,7 +271,10 @@ void setup()
   id = xTaskAdd("TASKSW3", &taskSW3);
   xTaskStart(id);
 
-  id = xTaskAdd("TASKSERIAL", &taskSerial);
+  /*id = xTaskAdd("TASKSERIAL", &taskSerial);
+  xTaskWait(id);*/
+
+  id = xTaskAdd("TASKMAN", &taskMan);
   xTaskWait(id);
 }
 
