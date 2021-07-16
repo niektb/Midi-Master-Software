@@ -1,284 +1,113 @@
-#include <HeliOS_Arduino.h>
+#include "switch.h"
 
-/* PIN DEFINITIONS */
-const uint8_t pin_sw1  = 4;
-const uint8_t pin_sw2  = 3;
-const uint8_t pin_sw3  = 2;
+/* SWITCH DEFINITIONS */
+Switch switch1 = Switch(4U);
+Switch switch2 = Switch(3U);
+Switch switch3 = Switch(2U);
 
-/* DEBOUNCE PARAMETERS */
-const uint8_t debounce_delay = 20;
-
-// SWITCH 1
-bool s1state;
-bool last_s1state = HIGH;
-bool last_button1 = HIGH;
-
-unsigned long ldt1 = 0; // last debounce time
-unsigned long ftt1; // first tap time
-unsigned long frt1; // first release time
-bool wfr1 = false;  // wait for release
-
-// SWITCH 3
-bool s2state;
-bool last_s2state = HIGH;
-bool last_button2 = HIGH;
-
-unsigned long ldt2 = 0; // last debounce time
-unsigned long ftt2; // first tap time
-unsigned long frt2; // first release time
-bool wfr2 = false;  // wait for release
-
-// SWITCH 3
-bool s3state;
-bool last_s3state = HIGH;
-bool last_button3 = HIGH;
-
-unsigned long ldt3 = 0; // last debounce time
-unsigned long ftt3; // first tap time
-unsigned long frt3; // first release time
-bool wfr3 = false;  // wait for release
 // MIDI PARAM
-const uint8_t fav_preset = 7; // preset 8
-uint8_t current_preset = fav_preset;
-const int PC = 192;
-//const int CC = 176;
+const uint8_t programChangeLine6M5 = 192;
+//const uint8_t controlChangeLine6M5 = 176;
+const uint8_t favPresetLine6M5 = 7;
+uint8_t presetLine6M5 = favPresetLine6M5;
 
 // Send MIDI message
-void MIDIPC(int COMMAND, int DATA) {
-  Serial.write(COMMAND);
-  Serial.write(DATA);
+void sendMidiProgramChange(int COMMAND, int DATA) {
+    Serial.write(COMMAND);
+    Serial.write(DATA);
 }
 
 /* TASKS */
 void taskSW1(xTaskId id_)
 {
-  int button = digitalRead(pin_sw1);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button1)
-    ldt1 = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt1) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // s1state is the stable input that can be used for reading button presses.
-    if (button != s1state)
-      s1state = button;
-
-    if (s1state == LOW && last_s1state == HIGH) // SWITCH PRESS
-    {
-      ftt1 = millis();
-      wfr1 = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE1" );
-      
-      last_s1state = s1state;
-    }
-    else if (wfr1 && ((millis() - ftt1) >= 1000)) // SWITCH HOLD
-    {
-      wfr1 = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL1" );
-    }
-    else if (s1state == HIGH && last_s1state == LOW) // SWITCH RELEASE
-    {
-      if (wfr1)
-      {
-        frt1 = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL1" );
-
-        wfr1 = false;
-      }
-      last_s1state = s1state;
-    }
-  }
-  last_button1 = button;
+    // Call the task function of switch1.
+    switch1.TaskFunction(id_, (char *)"PRE1", (char *)"HOL1", (char *)"REL1");
 }
 
 void taskSW2(xTaskId id_)
 {
-  int button = digitalRead(pin_sw2);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button2)
-    ldt2 = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt2) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // s2state is the stable input that can be used for reading button presses.
-    if (button != s2state)
-      s2state = button;
-
-    if (s2state == LOW && last_s2state == HIGH) // SWITCH PRESS
-    {
-      ftt2 = millis();
-      wfr2 = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE2");
-      
-      last_s2state = s2state;
-    }
-    else if (wfr2 && ((millis() - ftt2) >= 1000)) // SWITCH HOLD
-    {
-      wfr2 = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL2");
-    }
-    else if (s2state == HIGH && last_s2state == LOW) // SWITCH RELEASE
-    {
-      if (wfr2)
-      {
-        frt2 = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL2");
-
-        wfr2 = false;
-      }
-      last_s2state = s1state;
-    }
-  }
-  last_button2 = button;
-
+    // Call the task function of switch2.
+    switch2.TaskFunction(id_, (char *)"PRE2", (char *)"HOL2", (char *)"REL2");
 }
 
 void taskSW3(xTaskId id_)
 {
-  int button = digitalRead(pin_sw3);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button3)
-    ldt3 = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt3) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // s3state is the stable input that can be used for reading button presses.
-    if (button != s3state)
-      s3state = button;
-
-    if (s3state == LOW && last_s3state == HIGH) // SWITCH PRESS
-    {
-      ftt3 = millis();
-      wfr3 = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE3");
-      
-      last_s3state = s3state;
-    }
-    else if (wfr3 && ((millis() - ftt3) >= 1000)) // SWITCH HOLD
-    {
-      wfr3 = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL3");
-    }
-    else if (s3state == HIGH && last_s3state == LOW) // SWITCH RELEASE
-    {
-      if (wfr3)
-      {
-        frt3 = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL3");
-
-        wfr3 = false;
-      }
-      last_s3state = s1state;
-    }
-  }
-  last_button3 = button;
+    // Call the task function of switch3.
+    switch3.TaskFunction(id_, (char *)"PRE3", (char *)"HOL3", (char *)"REL3");
 }
 
 void taskSerial(xTaskId id_)
 {
-  xTaskGetNotifResult res = xTaskGetNotif(id_);
-  if (res)
-    Serial.println(res->notifyValue);
-  xMemFree(res);
-  xTaskNotifyClear(id_);
+    xTaskGetNotifResult res = xTaskGetNotif(id_);
+    if (res)
+        Serial.println(res->notifyValue);
+    xMemFree(res);
+    xTaskNotifyClear(id_);
 }
 
 void taskMan(xTaskId id_)
 {
-  xTaskGetNotifResult res = xTaskGetNotif(id_);
-  if (res)
-  {
-    // Perform task if we got a notification
-    if (strcmp(res->notifyValue, "PRE1") == 0)
+    xTaskGetNotifResult res = xTaskGetNotif(id_);
+    if (res)
     {
-      // Press Switch 1
-      if (current_preset > 0)
-        current_preset--;
-      else
-        current_preset = 23;  
-      
-      MIDIPC(PC, current_preset);
-    }
-    else if (strcmp(res->notifyValue, "PRE2") == 0)
-    {
-      // Press Switch 2
-        current_preset = fav_preset;
-      
-      MIDIPC(PC, current_preset);
-    }
-    else if (strcmp(res->notifyValue, "PRE3") == 0)
-    {
-      // Press Switch 3
-      if (current_preset < 23)
-        current_preset++;
-      else
-        current_preset = 0;
-        
-      MIDIPC(PC, current_preset);
-    }
+        // Perform task if we got a notification
+        if (strcmp(res->notifyValue, "PRE1") == 0)
+        {
+            // Press Switch 1
+            if (presetLine6M5 > 0)
+                presetLine6M5--;
+            else
+                presetLine6M5 = 23;  
+            
+            sendMidiProgramChange(programChangeLine6M5, presetLine6M5);
+        }
+        else if (strcmp(res->notifyValue, "PRE2") == 0)
+        {
+            // Press Switch 2
+            presetLine6M5 = favPresetLine6M5;
+          
+            sendMidiProgramChange(programChangeLine6M5, presetLine6M5);
+        }
+        else if (strcmp(res->notifyValue, "PRE3") == 0)
+        {
+            // Press Switch 3
+            if (presetLine6M5 < 23)
+                presetLine6M5++;
+            else
+                presetLine6M5 = 0;
+            
+            sendMidiProgramChange(programChangeLine6M5, presetLine6M5);
+        }
     //xTaskNotify(xTaskGetId("TASKSERIAL"), 4, res->notifyValue);
-  }
-  xMemFree(res);
-  xTaskNotifyClear(id_);
+    }
+    xMemFree(res);
+    xTaskNotifyClear(id_);
 }
 
 void setup()
 {
-  Serial.begin(31250);
-  //Serial.println(F("[MIDI Master Debug Stream]"));
+    Serial.begin(31250);
+    //Serial.println(F("[MIDI Master Debug Stream]"));
+    
+    delay(3000); // Compensate for slow start Line6 M5
+    sendMidiProgramChange(programChangeLine6M5, presetLine6M5);
 
-  // PIN SETUP
-  pinMode(pin_sw1, INPUT);
-  pinMode(pin_sw2, INPUT);
-  pinMode(pin_sw3, INPUT);
-
-  delay(3000); // Compensate for slow start Line6 M5
-  MIDIPC(PC, current_preset);
-
-  xTaskId id = 0;
-  xHeliOSSetup();
-  
-  xTaskId id = xTaskAdd("TASKSW1", &taskSW1);
-  xTaskStart(id);
-
-  id = xTaskAdd("TASKSW2", &taskSW2);
-  xTaskStart(id);
-
-  id = xTaskAdd("TASKSW3", &taskSW3);
-  xTaskStart(id);
-
-  /*id = xTaskAdd("TASKSERIAL", &taskSerial);
-  xTaskWait(id);*/
-
-  id = xTaskAdd("TASKMAN", &taskMan);
-  xTaskWait(id);
+    xHeliOSSetup();
+    
+    xTaskId id = xTaskAdd("TASKSW1", &taskSW1);
+    xTaskStart(id);
+    
+    id = xTaskAdd("TASKSW2", &taskSW2);
+    xTaskStart(id);
+    
+    id = xTaskAdd("TASKSW3", &taskSW3);
+    xTaskStart(id);
+    
+    id = xTaskAdd("TASKMAN", &taskMan);
+    xTaskWait(id);
 }
 
 void loop()
 {
-  xHeliOSLoop();
+    xHeliOSLoop();
 }
