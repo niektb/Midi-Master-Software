@@ -5,44 +5,39 @@
 class Switch
 {
 public:
-    ///
-    /// Constructor.
-    ///
-    /// @param pin  Pin number of the switch.
-    ///
+    // Constructor
+    // @param pin  Pin number of the switch
     Switch(const uint8_t pin);
     
-    ///
-    /// Destructor.
-    ///
+    // Destructor
     ~Switch();
     
-    ///
-    /// Function to execute in the task.
-    ///
-    /// @param id_  ID of the calling task.
-    ///
+    // Function to execute in the task
+    // @param id_  ID of the calling task
+    // @param pre  command to send to TaskMan on Switch press
+    // @param hold command to send to TaskMan on Switch hold
+    // @param rela command to send to TaskMan on Switch release
     void TaskFunction(xTaskId id_, const char pre[4], const char hold[4], const char rela[4]);
 
 private:
-    /// Pin number of the switch.
+    // Pin number of the switch
     const uint8_t PIN;
     
-    /// Stable input that can be used for reading button.
+    // Stable input that can be used for reading button
     int switchState;
-    /// Previous stable input state.
+    // Previous stable input state
     int prevSwitchState = HIGH;
     
-    /// Last debounce time.
+    // Last debounce time
     uint32_t lastDebounceTime;
-    /// First tap time
+    // First tap time
     uint32_t firstTapTime;
-    /// First release time
+    // First release time
     uint32_t firstReleaseTime;
     
-    /// Wait for release
+    // Wait for release
     bool WaitForRelease;
     
-    /// Raw previous button state used for debouncing.
+    // Raw previous button state used for debouncing
     int prevButtonState = HIGH;
 };
