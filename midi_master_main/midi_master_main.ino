@@ -1,4 +1,4 @@
-#include <HeliOS_Arduino.h>
+#include <HeliOS.h>
 
 /* PIN DEFINITIONS */
 const uint8_t pin_sw1  = 4;
@@ -8,35 +8,23 @@ const uint8_t pin_sw3  = 2;
 /* DEBOUNCE PARAMETERS */
 const uint8_t debounce_delay = 20;
 
-// SWITCH 1
-bool s1state;
-bool last_s1state = HIGH;
-bool last_button1 = HIGH;
+// SWITCH
+// Define struct to pass to task
+typedef struct footsw {
+    int port;
+    bool sstate;
+    bool last_sstate;
+    bool last_button;
 
-unsigned long ldt1 = 0; // last debounce time
-unsigned long ftt1; // first tap time
-unsigned long frt1; // first release time
-bool wfr1 = false;  // wait for release
+    unsigned long ldt; // last debounce time
+    unsigned long ftt; // first tap time
+    unsigned long frt; // first release time
+    bool wfr = false;  // wait for release
+    const char press[4];
+    const char hold[4];
+    const char release[4];
+} footsw;
 
-// SWITCH 3
-bool s2state;
-bool last_s2state = HIGH;
-bool last_button2 = HIGH;
-
-unsigned long ldt2 = 0; // last debounce time
-unsigned long ftt2; // first tap time
-unsigned long frt2; // first release time
-bool wfr2 = false;  // wait for release
-
-// SWITCH 3
-bool s3state;
-bool last_s3state = HIGH;
-bool last_button3 = HIGH;
-
-unsigned long ldt3 = 0; // last debounce time
-unsigned long ftt3; // first tap time
-unsigned long frt3; // first release time
-bool wfr3 = false;  // wait for release
 // MIDI PARAM
 const uint8_t fav_preset = 7; // preset 8
 uint8_t current_preset = fav_preset;
@@ -50,170 +38,75 @@ void MIDIPC(int COMMAND, int DATA) {
 }
 
 /* TASKS */
-void taskSW1(xTaskId id_)
+void taskSW_main(xTask task_, xTaskParm parm_)
 {
-  int button = digitalRead(pin_sw1);
+  footsw sw = DEREF_TASKPARM(footsw, parm_);
+
+  int button = digitalRead(sw.port);
   // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button1)
-    ldt1 = millis();
+  if (button != sw.last_button)
+    sw.ldt = millis();
 
   // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt1) > debounce_delay) {
+  if ((millis() - sw.ldt) > debounce_delay) {
 
     // Button and last_button represent the 'unstable' input that gets updated continuously.
     // These are used for debouncing.
     // s1state is the stable input that can be used for reading button presses.
-    if (button != s1state)
-      s1state = button;
+    if (button != sw.sstate)
+      sw.sstate = button;
 
-    if (s1state == LOW && last_s1state == HIGH) // SWITCH PRESS
+    if (sw.sstate == LOW && sw.last_sstate == HIGH) // SWITCH PRESS
     {
-      ftt1 = millis();
-      wfr1 = true;
+      sw.ftt = millis();
+      sw.wfr = true;
 
       // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE1" );
+      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.press);
       
-      last_s1state = s1state;
+      sw.last_sstate = sw.sstate;
     }
-    else if (wfr1 && ((millis() - ftt1) >= 1000)) // SWITCH HOLD
+    else if (sw.wfr && ((millis() - sw.ftt) >= 1000)) // SWITCH HOLD
     {
-      wfr1 = false;
+      sw.wfr = false;
       // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL1" );
+      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.hold);
     }
-    else if (s1state == HIGH && last_s1state == LOW) // SWITCH RELEASE
+    else if (sw.sstate == HIGH && sw.last_sstate == LOW) // SWITCH RELEASE
     {
-      if (wfr1)
+      if (sw.wfr)
       {
-        frt1 = millis();
+        sw.frt = millis();
 
         // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL1" );
+        xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.release);
 
-        wfr1 = false;
+        sw.wfr = false;
       }
-      last_s1state = s1state;
+      sw.last_sstate = sw.sstate;
     }
   }
-  last_button1 = button;
+  sw.last_button = button;
+
+  DEREF_TASKPARM(footsw, parm_) = sw;
+  return;
 }
 
-void taskSW2(xTaskId id_)
+void taskSerial_main(xTask task_, xTaskParm parm_)
 {
-  int button = digitalRead(pin_sw2);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button2)
-    ldt2 = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt2) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // s2state is the stable input that can be used for reading button presses.
-    if (button != s2state)
-      s2state = button;
-
-    if (s2state == LOW && last_s2state == HIGH) // SWITCH PRESS
-    {
-      ftt2 = millis();
-      wfr2 = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE2");
-      
-      last_s2state = s2state;
-    }
-    else if (wfr2 && ((millis() - ftt2) >= 1000)) // SWITCH HOLD
-    {
-      wfr2 = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL2");
-    }
-    else if (s2state == HIGH && last_s2state == LOW) // SWITCH RELEASE
-    {
-      if (wfr2)
-      {
-        frt2 = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL2");
-
-        wfr2 = false;
-      }
-      last_s2state = s1state;
-    }
-  }
-  last_button2 = button;
-
-}
-
-void taskSW3(xTaskId id_)
-{
-  int button = digitalRead(pin_sw3);
-  // reset debouncing timer if the switch changed, due to noise or pressing:
-  if (button != last_button3)
-    ldt3 = millis();
-
-  // If the button state is stable for at least [debounce_delay], fire body of the statement
-  if ((millis() - ldt3) > debounce_delay) {
-
-    // Button and last_button represent the 'unstable' input that gets updated continuously.
-    // These are used for debouncing.
-    // s3state is the stable input that can be used for reading button presses.
-    if (button != s3state)
-      s3state = button;
-
-    if (s3state == LOW && last_s3state == HIGH) // SWITCH PRESS
-    {
-      ftt3 = millis();
-      wfr3 = true;
-
-      // PERFORM PRESS ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"PRE3");
-      
-      last_s3state = s3state;
-    }
-    else if (wfr3 && ((millis() - ftt3) >= 1000)) // SWITCH HOLD
-    {
-      wfr3 = false;
-      // PERFORM HOLD ACTION
-      xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"HOL3");
-    }
-    else if (s3state == HIGH && last_s3state == LOW) // SWITCH RELEASE
-    {
-      if (wfr3)
-      {
-        frt3 = millis();
-
-        // PERFORM RELEASE ACTION
-        xTaskNotify(xTaskGetId("TASKMAN"), 4, (char *)"REL3");
-
-        wfr3 = false;
-      }
-      last_s3state = s1state;
-    }
-  }
-  last_button3 = button;
-}
-
-void taskSerial(xTaskId id_)
-{
-  xTaskGetNotifResult res = xTaskGetNotif(id_);
+  xTaskNotification res = xTaskNotifyTake(task_);
   if (res)
-    Serial.println(res->notifyValue);
+    Serial.println(res->notificationValue);
   xMemFree(res);
-  xTaskNotifyClear(id_);
 }
 
-void taskMan(xTaskId id_)
+void taskMan_main(xTask task_, xTaskParm parm_)
 {
-  xTaskGetNotifResult res = xTaskGetNotif(id_);
+  xTaskNotification res = xTaskNotifyTake(task_);
   if (res)
   {
     // Perform task if we got a notification
-    if (strcmp(res->notifyValue, "PRE1") == 0)
+    if (strcmp(res->notificationValue, "PRE1") == 0)
     {
       // Press Switch 1
       if (current_preset > 0)
@@ -223,14 +116,14 @@ void taskMan(xTaskId id_)
       
       MIDIPC(PC, current_preset);
     }
-    else if (strcmp(res->notifyValue, "PRE2") == 0)
+    else if (strcmp(res->notificationValue, "PRE2") == 0)
     {
       // Press Switch 2
         current_preset = fav_preset;
       
       MIDIPC(PC, current_preset);
     }
-    else if (strcmp(res->notifyValue, "PRE3") == 0)
+    else if (strcmp(res->notificationValue, "PRE3") == 0)
     {
       // Press Switch 3
       if (current_preset < 23)
@@ -240,10 +133,9 @@ void taskMan(xTaskId id_)
         
       MIDIPC(PC, current_preset);
     }
-    //xTaskNotify(xTaskGetId("TASKSERIAL"), 4, res->notifyValue);
+    //xTaskNotifyGive(xTaskGetHandleByName("TASKSERIAL")), 4, res->notificationValue);
   }
   xMemFree(res);
-  xTaskNotifyClear(id_);
 }
 
 void setup()
@@ -259,26 +151,78 @@ void setup()
   delay(3000); // Compensate for slow start Line6 M5
   MIDIPC(PC, current_preset);
 
-  xTaskId id = 0;
-  xHeliOSSetup();
-  
-  xTaskId id = xTaskAdd("TASKSW1", &taskSW1);
-  xTaskStart(id);
+    // initialize struct for switch 1
+    footsw SW1 = {
+        pin_sw1,    //port
+        HIGH,       //sstate
+        HIGH,       //last_sstate
+        HIGH,       //last_button
+        0,          //ldt
+        0,          //fft
+        0,          //frt
+        false,      //wfr
+        (char *)"PRE1", //press
+        (char *)"HOL1", //hold
+        (char *)"REL1"  //release
+    };
+    xTask taskSW1 = xTaskCreate("TASKSW1", taskSW_main, &SW1);
 
-  id = xTaskAdd("TASKSW2", &taskSW2);
-  xTaskStart(id);
+    // initialize struct for switch 2
+    footsw SW2 = {
+        pin_sw2,    //port
+        HIGH,       //sstate
+        HIGH,       //last_sstate
+        HIGH,       //last_button
+        0,          //ldt
+        0,          //fft
+        0,          //frt
+        false,      //wfr
+        (char *)"PRE2", //press
+        (char *)"HOL2", //hold
+        (char *)"REL2"  //release
+    };
+    xTask taskSW2 = xTaskCreate("TASKSW2", taskSW_main, &SW2);
 
-  id = xTaskAdd("TASKSW3", &taskSW3);
-  xTaskStart(id);
+    // initialize struct for switch 1
+    footsw SW3 = {
+        pin_sw3,    //port
+        HIGH,       //sstate
+        HIGH,       //last_sstate
+        HIGH,       //last_button
+        0,          //ldt
+        0,          //fft
+        0,          //frt
+        false,      //wfr
+        (char *)"PRE3", //press
+        (char *)"HOL3", //hold
+        (char *)"REL3"  //release
+    };
+    xTask taskSW3 = xTaskCreate("TASKSW1", taskSW_main, &SW3);
 
-  /*id = xTaskAdd("TASKSERIAL", &taskSerial);
-  xTaskWait(id);*/
+    //xTask taskSerial = xTaskCreate("TASKSERIAL", taskSerial_main, NULL);
+    
+    xTask taskMan = xTaskCreate("TASKMAN", taskSW_main, NULL);
 
-  id = xTaskAdd("TASKMAN", &taskMan);
-  xTaskWait(id);
+    // Check if all tasks are created correctly
+    if (taskSW1 && taskSW2 && taskSW3 && taskMan /*&& taskSerial*/) {
+        xTaskResume(taskSW1);
+        xTaskResume(taskSW2);
+        xTaskResume(taskSW3);
+        xTaskWait(taskMan);
+        //xTaskWait(taskSerial);
+        
+        xTaskStartScheduler();
+
+        xTaskDelete(taskSW1);
+        xTaskDelete(taskSW2);
+        xTaskDelete(taskSW3);
+        xTaskDelete(taskMan);
+        //xTaskDelete(taskSerial);
+    }
+    xSystemHalt();
 }
 
 void loop()
 {
-  xHeliOSLoop();
+  // Should remain empty
 }
