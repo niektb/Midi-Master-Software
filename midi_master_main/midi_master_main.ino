@@ -20,9 +20,9 @@ typedef struct footsw {
     unsigned long ftt; // first tap time
     unsigned long frt; // first release time
     bool wfr = false;  // wait for release
-    const char press[4];
-    const char hold[4];
-    const char release[4];
+    char sw_press[4];
+    char sw_hold[4];
+    char sw_release[4];
 } footsw;
 
 // MIDI PARAM
@@ -62,7 +62,7 @@ void taskSW_main(xTask task_, xTaskParm parm_)
       sw.wfr = true;
 
       // PERFORM PRESS ACTION
-      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.press);
+      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.sw_press);
       
       sw.last_sstate = sw.sstate;
     }
@@ -70,7 +70,7 @@ void taskSW_main(xTask task_, xTaskParm parm_)
     {
       sw.wfr = false;
       // PERFORM HOLD ACTION
-      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.hold);
+      xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.sw_hold);
     }
     else if (sw.sstate == HIGH && sw.last_sstate == LOW) // SWITCH RELEASE
     {
@@ -79,7 +79,7 @@ void taskSW_main(xTask task_, xTaskParm parm_)
         sw.frt = millis();
 
         // PERFORM RELEASE ACTION
-        xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.release);
+        xTaskNotifyGive(xTaskGetHandleByName("TASKMAN"), 4, sw.sw_release);
 
         sw.wfr = false;
       }
