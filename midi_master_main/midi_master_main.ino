@@ -19,7 +19,7 @@ typedef struct footsw {
     unsigned long ldt; // last debounce time
     unsigned long ftt; // first tap time
     unsigned long frt; // first release time
-    bool wfr = false;  // wait for release
+    bool wfr;  // wait for release
     char sw_press[4];
     char sw_hold[4];
     char sw_release[4];
@@ -52,7 +52,7 @@ void taskSW_main(xTask task_, xTaskParm parm_)
 
     // Button and last_button represent the 'unstable' input that gets updated continuously.
     // These are used for debouncing.
-    // s1state is the stable input that can be used for reading button presses.
+    // sstate is the stable input that can be used for reading button presses.
     if (button != sw.sstate)
       sw.sstate = button;
 
@@ -210,7 +210,7 @@ void setup()
         xTaskResume(taskSW3);
         xTaskWait(taskMan);
         //xTaskWait(taskSerial);
-        
+
         xTaskStartScheduler();
 
         xTaskDelete(taskSW1);
